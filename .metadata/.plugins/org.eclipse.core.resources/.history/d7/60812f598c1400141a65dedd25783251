@@ -1,0 +1,79 @@
+/*
+ * Copyright (C) 2011 Markus Junginger, greenrobot (http://greenrobot.de)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.cgearc.greendao;
+
+import de.greenrobot.daogenerator.DaoGenerator;
+import de.greenrobot.daogenerator.Entity;
+import de.greenrobot.daogenerator.Property;
+import de.greenrobot.daogenerator.Schema;
+import de.greenrobot.daogenerator.ToMany;
+
+/**
+ * Generates entities and DAOs for the example project DaoExample.
+ * 
+ * Run it as a Java application (not Android).
+ * 
+ * @author Markus
+ */
+public class YummyDaoGenerator {
+
+    public static void main(String[] args) throws Exception {
+        Schema schema = new Schema(7, "com.georgeme");
+        schema.enableKeepSectionsByDefault();
+        schema.enableActiveEntitiesByDefault();
+        addArticleTable(schema);
+
+        new DaoGenerator().generateAll(schema, "F:/DOZO/Android/workspace_ideas/GeorgeMe/src-gen");
+    }
+
+    private static void addArticleTable(Schema schema) {
+        Entity user = schema.addEntity("Restaurant");
+//        user.implementsInterface("Comparable");
+        user.addIdProperty();
+        user.addStringProperty("description");
+        user.addStringProperty("address");
+        user.addStringProperty("source");
+        user.addStringProperty("time");
+        user.addStringProperty("name");
+        user.addStringProperty("latitude");
+        user.addStringProperty("longitude");
+        user.addStringProperty("comments");
+        user.addStringProperty("photos");
+        user.addStringProperty("price");
+        user.addStringProperty("rating");
+        user.addStringProperty("distance");
+        user.addStringProperty("cover");
+        
+        Entity pic = schema.addEntity("Picture");
+        pic.addIdProperty();
+        pic.addStringProperty("uri").notNull();
+        pic.addStringProperty("height").notNull();
+        pic.addStringProperty("width").notNull();
+        Property article_id = pic.addLongProperty("article_id").notNull().getProperty();
+        
+        pic.addToOne(user, article_id);
+        user.addToMany(pic, article_id);
+       
+        Entity fav = schema.addEntity("Favorite");
+        fav.addStringProperty("blogger_id");
+        Property farticle_id = fav.addLongProperty("article_id").primaryKey().getProperty();
+        fav.addToOne(user, farticle_id);
+        user.addToMany(fav, farticle_id);        
+//      
+    }
+   
+
+}

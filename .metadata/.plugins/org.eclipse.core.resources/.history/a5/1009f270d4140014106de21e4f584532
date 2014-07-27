@@ -1,0 +1,438 @@
+package com.georgeme;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+import com.android.volley.util.NetworkImageView;
+import com.cgearc.yummy.DaoMaster.DevOpenHelper;
+import com.cgearc.yummy.SyncManager.SyncObserver;
+import com.google.android.gms.analytics.HitBuilders;
+import com.google.android.gms.analytics.Tracker;
+
+import android.app.Activity;
+import android.database.sqlite.SQLiteDatabase;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.ViewGroup;
+import android.widget.AbsListView;
+import android.widget.AbsListView.OnScrollListener;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
+import android.widget.AdapterView.OnItemLongClickListener;
+import android.widget.BaseAdapter;
+import android.widget.GridView;
+import android.widget.ImageView;
+import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+
+/**
+ * Fragment that appears in the "content_frame", shows a planet
+ */
+public  class Frg_RecipeList extends BaseFragment implements OnItemClickListener, OnItemLongClickListener {
+    public static final String ARG_PLANET_NUMBER = "planet_number";
+	private static final String TAG = "nevin";
+	private ProgressBar mProgressBar; 
+	private RelativeLayout mRelativeLayout;
+	
+	GridView mGridView;
+	ArticleAdapter mAdapter ;
+	SearchCompletedListener mCallback;
+	RecipeClickedListener mRecipeClickCallback;
+	
+	public interface SearchCompletedListener{
+		void onSearchCompleted();
+	}
+	public interface RecipeClickedListener{
+		void onRecipeClicked(String title,String user_name,String display_name, String  article_id, String body);
+	}
+    public Frg_RecipeList() {
+        // Empty constructor required for fragment subclasses
+    } 
+    class SortedArrayList<T> extends ArrayList<T> {
+
+        @SuppressWarnings("unchecked")
+        public void insertSorted(T value) {
+            add(value);
+            Comparable<T> cmp = (Comparable<T>) value;
+            for (int i = size()-1; i > 0 && cmp.compareTo(get(i-1)) < 0; i--)
+                Collections.swap(this, i, i-1);
+        }
+    }
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        
+        // This makes sure that the container activity has implemented
+        // the callback interface. If not, it throws an exception
+        try {
+            mCallback = (SearchCompletedListener) activity;
+            mRecipeClickCallback = (RecipeClickedListener) activity;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(activity.toString()
+                    + " must implement SearchCompletedListener");
+        }
+    }
+    
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+      super.onCreate(savedInstanceState);
+      // Retain this fragment across configuration changes.
+      setRetainInstance(true);
+    }
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+            Bundle savedInstanceState) {
+        View rootView = inflater.inflate(R.layout.fragment_hot_recipe, container, false);
+        mProgressBar = (ProgressBar)rootView.findViewById(R.id.pb_recipe_list);
+        mProgressBar.setVisibility(View.VISIBLE);
+        mRelativeLayout = (RelativeLayout)rootView.findViewById(R.id.recipe_container);
+        mGridView = (GridView) rootView.findViewById(R.id.recipe_grid);
+        mGridView.setOnScrollListener(new EndlessScrollListener());
+        mAdapter = new ArticleAdapter(inflater, new SortedArrayList<Article>());
+        mGridView.setAdapter(mAdapter);
+        	
+        Setting.CURRENT_PAGE=0; // important! Set the flag to 0 
+        loadMoreData();
+        	
+        mGridView.setOnItemClickListener(this);
+        mGridView.setOnItemLongClickListener(this);
+
+        getActivity().setTitle(getTag());
+        
+        return rootView;
+    }
+    
+    private void loadMoreData(){ 
+		// Google Analytics
+		
+    	Log.d(TAG,"----loadMoreData----------");
+    	if (getArguments()==null){
+    		Log.d(TAG,"----hot----------");
+    		SyncManager mgr = SyncManager.getInstance(this.getActivity());
+    		mgr.getHotArticleFromCDN(mAdapter, mProgressBar);
+    		
+        }else if (getArguments().getString("query")!=null){
+        	Log.d(TAG,"----query----------");
+        	String where = getArguments().getString("query");
+			
+        	
+        	// Google Analytics
+			Tracker t = ((MyApplication) this.getActivity().getApplication()).getTracker();
+			t.send(new HitBuilders.AppViewBuilder().set("query", where).build());
+			
+			SyncManager mgr = SyncManager.getInstance(this.getActivity());
+			if (getArguments().getString("localFileId")!=null){
+				mgr.getPresetArticlesFromLocalJson(getArguments().getString("localFileId"), mAdapter, mProgressBar);
+			}else{
+				mgr.searchArticlesByKeyword(mAdapter, where, mProgressBar);
+			}
+        }else if (getArguments().getString("favorite")!=null){
+        	Log.d(TAG,"----fav----------");
+			SyncManager mgr = SyncManager.getInstance(this.getActivity());
+			mgr.getFavoriteArticlesFromLocalDB(mAdapter, mProgressBar);
+        }
+		
+        
+    }
+    public void stepBack(float slideOffset){
+    	if(mRelativeLayout!=null){
+    		float min = 0.9f;
+            float max = 1.0f;
+            float scaleFactor = (max - ((max - min) * slideOffset));
+
+            mRelativeLayout.setScaleX(scaleFactor);
+            mRelativeLayout.setScaleY(scaleFactor);
+    	}
+    }
+    
+    
+   
+    public  class ArticleAdapter extends BaseAdapter implements SyncObserver{
+
+        private LayoutInflater mInflater;
+        
+        public ArticleAdapter(LayoutInflater inflater, SortedArrayList<Article> articles) {
+            if (articles == null) {
+                throw new IllegalStateException("Can't have null list of articles");
+            }
+            Setting.allArticles = articles;
+            mInflater = inflater;
+        }
+        
+        public ArrayList<Article> getArticles(){
+        	return Setting.allArticles;
+        }
+
+        @Override
+        public int getCount() {
+            return Setting.allArticles.size();
+        }
+
+        @Override
+        public Article getItem(int position) {
+            return Setting.allArticles.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(final int position, View convertView, ViewGroup parent) {
+            View result = convertView;
+            if (result == null) {
+                result = mInflater.inflate(R.layout.grid_item, parent, false);
+            }
+
+            // Try to get view cache or create a new one if needed
+            ViewCache viewCache = (ViewCache) result.getTag();
+            if (viewCache == null) {
+                viewCache = new ViewCache(result);
+                result.setTag(viewCache);
+            } 
+
+            // Fetch item
+            Article tmp = getItem(position);
+ 
+            // Bind the data
+            viewCache.mTitleView.setText(tmp.getTitle());
+            viewCache.mAuthorView.setText(""+tmp.getDisplay_name());
+            if (tmp.getThumb()!=null)
+            	viewCache.mImageView.setImageUrl(tmp.getThumb().replace("90x90","320x250").replace("width=90&height=90","width=320&height=250"), MyVolley.getImageLoader());
+            else
+            	viewCache.mImageView.setImageResource(R.drawable.notfound);
+            viewCache.mHitTotalView.setText("人氣:"+tmp.getHits_total());
+            DevOpenHelper helper = new DaoMaster.DevOpenHelper(Frg_RecipeList.this.getActivity(), "foodabc-db",
+    				null);
+    		SQLiteDatabase db = helper.getWritableDatabase();
+    		DaoMaster mDaoMaster = new DaoMaster(db);
+    		DaoSession mDaoSession = mDaoMaster.newSession();
+    		FavoriteDao fdao = mDaoSession.getFavoriteDao();
+    		List a = fdao.queryBuilder().where(FavoriteDao.Properties.Article_id.eq(Long.valueOf(tmp.getArticle_id()))).list();
+			mDaoSession.clear();
+			db.close();
+
+			if (a.size()>0)
+    			viewCache.mIvStar.setImageResource(android.R.drawable.star_big_on);
+    		else
+    			viewCache.mIvStar.setImageResource(android.R.drawable.star_big_off);
+    			
+    		viewCache.mIvStar.setOnClickListener(new OnClickListener(){
+
+				@Override
+				public void onClick(View v) {
+					DevOpenHelper helper = new DaoMaster.DevOpenHelper(Frg_RecipeList.this.getActivity(), "foodabc-db",
+							null);
+					SQLiteDatabase db = helper.getWritableDatabase();
+					DaoMaster mDaoMaster = new DaoMaster(db);
+					DaoSession mDaoSession = mDaoMaster.newSession();
+					ArticleDao adao = mDaoSession.getArticleDao();
+					FavoriteDao fdao = mDaoSession.getFavoriteDao();
+					String article_id = ArticleAdapter.this.getItem(position).getArticle_id();
+					Log.d(TAG,"onClick!  Item pos["+position+"] with aid["+article_id+"] clicked");
+					
+					List a = fdao.queryBuilder().where(FavoriteDao.Properties.Article_id.eq(Long.valueOf(article_id))).list();
+					Favorite f = new Favorite();
+					f.setArticle_id(Long.valueOf(ArticleAdapter.this.getItem(position).getArticle_id()));
+					f.setBlogger_id(ArticleAdapter.this.getItem(position).getUser_name());
+					ImageView iv = (ImageView)v;
+					
+					if (a.size()>0){
+						// delete
+						fdao.delete(f);
+						adao.delete(ArticleAdapter.this.getItem(position));
+						iv.setImageResource(android.R.drawable.star_big_off);
+						
+					} else{
+						// add to favorite
+						fdao.insert(f);
+						adao.insertOrReplace(ArticleAdapter.this.getItem(position));
+						iv.setImageResource(android.R.drawable.star_big_on);
+					}
+					
+					mDaoSession.clear();
+					db.close();
+//					ArticleAdapter.this.notifyDataSetChanged();
+					
+				}
+            	
+            });
+            return result;
+        }
+
+		@Override
+		public void receiveNewItem(Object result) {
+			this.getArticles().add((Article) result);
+			this.notifyDataSetChanged();
+			
+		}
+        
+    }
+
+    /**
+     * Cache of views in the grid item view to make recycling of views quicker. This avoids
+     * additional {@link View#findViewById(int)} calls after the {@link ViewCache} is first
+     * created for a view. See
+     * {@link ArticleAdapter#getView(int position, View convertView, ViewGroup parent)}.
+     */
+    private  class ViewCache {
+
+        /** View that displays the title of the coupon */
+        private final TextView mTitleView;
+
+        /** View that displays the subtitle of the coupon */
+        private final TextView mAuthorView;
+        private final TextView mHitTotalView;
+
+        /** View that displays the image associated with the coupon */
+        private final NetworkImageView mImageView;
+        private final ImageView mIvStar;
+
+        /**
+         * Constructs a new {@link ViewCache}.
+         *
+         * @param view which contains children views that should be cached.
+         */
+        private ViewCache(View view) {
+            mTitleView = (TextView) view.findViewById(R.id.title);
+            mAuthorView = (TextView) view.findViewById(R.id.author);
+            mHitTotalView = (TextView) view.findViewById(R.id.hit_total);
+            mImageView = (NetworkImageView) view.findViewById(R.id.image);
+            mImageView.setDefaultImageResId(R.drawable.loading);
+            mImageView.setErrorImageResId(R.drawable.notfound);
+            mIvStar= (ImageView) view.findViewById(R.id.iv_favorite);
+        }
+    } 
+    
+    
+
+	@Override
+	public void onItemClick(AdapterView<?> arg0, View arg1, int arg2, long arg3) {
+//		Article a = (Article)arg0.getItemAtPosition(arg2);
+//		Intent intent = new Intent(this.getActivity(), Act_RecipeDetail.class);
+//		intent.putExtra("body", a.getBody());
+//		this.startActivity(intent);
+//		this.getActivity().overridePendingTransition(R.anim.activity_in, R.anim.activity_out);
+		
+		Article a = (Article)arg0.getItemAtPosition(arg2);
+		mRecipeClickCallback.onRecipeClicked(a.getTitle(),a.getUser_name(),a.getDisplay_name(),a.getArticle_id(),a.getBody());
+	}
+
+	@Override
+	public boolean onItemLongClick(AdapterView<?> parent, View view,
+			int position, long id) {
+//		Log.d(TAG,"onItemLongClick!  Item pos["+position+"] id["+id+"] with aid["+this.mAdapter.getItem(position).getArticle_id()+"] clicked");
+		DevOpenHelper helper = new DaoMaster.DevOpenHelper(this.getActivity(), "foodabc-db",
+				null);
+		SQLiteDatabase db = helper.getWritableDatabase();
+		DaoMaster mDaoMaster = new DaoMaster(db);
+		DaoSession mDaoSession = mDaoMaster.newSession();
+		FavoriteDao fdao = mDaoSession.getFavoriteDao();
+		ArticleDao adao = mDaoSession.getArticleDao();
+		
+		List a = fdao.queryBuilder().where(FavoriteDao.Properties.Article_id.eq(Long.valueOf(this.mAdapter.getItem(position).getArticle_id()))).list();
+		Favorite f = new Favorite();
+		f.setArticle_id(Long.valueOf(this.mAdapter.getItem(position).getArticle_id()));
+		f.setBlogger_id(this.mAdapter.getItem(position).getUser_name());
+		
+		ImageView iv = (ImageView)parent.findViewById(R.id.iv_favorite);
+		if (a.size()>0){
+			// delete
+			fdao.delete(f);
+			adao.delete(this.mAdapter.getItem(position));
+			iv.setImageResource(android.R.drawable.star_big_off);
+			Toast.makeText(this.getActivity(), this.mAdapter.getItem(position).getTitle()+"已被移除", Toast.LENGTH_SHORT).show();
+			if (getArguments()!=null && getArguments().getString("favorite")!=null){ // remove the item from list immediately only when favorite mode
+				this.mAdapter.getArticles().remove(this.mAdapter.getItem(position));
+	        }
+
+		} else{
+			// add to favorite
+			fdao.insert(f);
+			adao.insert(this.mAdapter.getItem(position));
+			
+			iv.setImageResource(android.R.drawable.star_big_on);
+			Toast.makeText(this.getActivity(), this.mAdapter.getItem(position).getTitle()+"已被儲存", Toast.LENGTH_SHORT).show();
+		}
+		this.mAdapter.notifyDataSetChanged();
+		mDaoSession.clear();
+		db.close();
+//		
+		return true;
+	}
+    
+	public class EndlessScrollListener implements OnScrollListener {
+        // how many entries earlier to start loading next page
+        private int visibleThreshold = 5;
+        private int currentPage = 0;
+        private int previousTotal = 0;
+        private boolean loading = true;
+
+        public EndlessScrollListener() {
+        }
+        public EndlessScrollListener(int visibleThreshold) {
+            this.visibleThreshold = visibleThreshold;
+        }
+
+        @Override
+        public void onScroll(AbsListView view, int firstVisibleItem,
+                int visibleItemCount, int totalItemCount) {
+            if (loading) {
+                if (totalItemCount > previousTotal) {
+                    loading = false;
+                    previousTotal = totalItemCount;
+                    currentPage++;
+                }
+            }
+            if (!loading && (totalItemCount - visibleItemCount) <= (firstVisibleItem + visibleThreshold)) {
+                // I load the next page of gigs using a background task,
+                // but you can call any function here.
+            	if (getArguments()!=null && getArguments().getString("query")!=null){
+	             	
+            		Log.d(TAG,"----load more----------");
+	     			if (getArguments().getString("localFileId")==null){	 // query request from custom keyword
+	     				String where = getArguments().getString("query");
+		     			SyncManager mgr = SyncManager.getInstance(getActivity());
+	     				//Toast.makeText(getActivity(), " load more "+where, Toast.LENGTH_LONG).show();
+	     				mgr.searchArticlesByKeyword(mAdapter, where, mProgressBar);//load more
+	     			}
+	             }
+                loading = true;
+            }
+            
+//            if(view.getFirstVisiblePosition() == 0 && !userScroll){
+//				getActivity().getActionBar().show();
+//				
+//			} else {
+//				getActivity().getActionBar().hide();
+//			
+//			}
+        }
+
+        boolean userScroll =false ;
+        @Override
+        public void onScrollStateChanged(AbsListView view, int scrollState) {
+        	if (scrollState == 0 )
+        		userScroll = true;
+        	else
+        		userScroll = false;
+        	
+            
+        }
+        
+        
+        public int getCurrentPage() {
+            return currentPage;
+        }
+    }
+	
+}

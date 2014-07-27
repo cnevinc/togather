@@ -1,0 +1,58 @@
+1406341774249	Delete elements
+1406341782452	Delete elements
+1406342156701	Rename package 'com.example.mapdemo'
+1406342407569	Rename field 'DONCHI'
+1406342768878	Rename field 'HERE'
+1406342797810	Rename field 'CHUNHO'
+1406342813745	Rename field 'RIGHT'
+1406342835003	Rename field 'NEIWHO'
+1406343311648	Delete element
+1406348042805	Rename local variable 'dynamicRadius'
+1406348960724	Rename field 'mCircles'
+1406348966411	Rename field 'mCircle'
+1406349364445	Rename field 'mUserPos'
+1406349373051	Rename field 'mUserPosLatLng'
+1406349381745	Rename field 'mUserCurrentLatLng'
+1406355910865	Rename resource 'activity_store_status.xml'
+1406355943924	Rename type 'StoreStatusActivity'
+1406355981517	Rename type 'StoreStatusAdapter'
+1406356135863	Delete element
+1406356735623	Rename field 'mDeviceList'
+1406356815870	Rename resource 'listrow_store_status.xml'
+1406357549924	Rename field 'txtview'
+1406357559808	Rename field 'txtview1'
+1406362053963	Delete elements
+1406362059885	Delete elements
+1406362069077	Delete elements
+1406362078551	Rename resource 'circle_demo.xml'
+1406367301159	Rename field 'progressDialog'
+1406368112690	Copy file
+1406370104568	Rename type 'User'
+1406385463311	Rename type 'CircleDemoActivity'
+1406385472386	Delete element
+1406385810591	Delete element
+1406386066810	Rename resource 'overlay_bg.xml'
+1406386099438	Delete element
+1406386338896	Delete elements
+1406386346892	Delete element
+1406386355875	Delete elements
+1406386359446	Delete element
+1406386365856	Delete elements
+1406386371194	Delete elements
+1406386373358	Delete element
+1406386433081	Copy file
+1406386449852	Copy file
+1406386712509	Copy compilation unit
+1406386731678	Copy compilation unit
+1406386977109	Rename field 'mUserList'
+1406387101465	Rename field 'roundimageView'
+1406387106673	Rename field 'name'
+1406387121056	Rename field 'location'
+1406392581625	Rename field 'other_acgtion'
+1406392605608	Rename local variable 'u'
+1406399595656	Rename field 'main_acgtion'
+1406401336294	Rename field 'UP'
+1406401342567	Rename field 'LEFT'
+1406401351502	Rename field 'RIGHT'
+1406407988781	Copy file
+1406408001282	Rename resource 'custom_dialog.xml'

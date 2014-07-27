@@ -1,0 +1,82 @@
+/*
+ * Copyright (C) 2011 Markus Junginger, greenrobot (http://greenrobot.de)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.cgearc.greendao;
+
+import de.greenrobot.daogenerator.DaoGenerator;
+import de.greenrobot.daogenerator.Entity;
+import de.greenrobot.daogenerator.Property;
+import de.greenrobot.daogenerator.Schema;
+import de.greenrobot.daogenerator.ToMany;
+
+/**
+ * Generates entities and DAOs for the example project DaoExample.
+ * 
+ * Run it as a Java application (not Android).
+ * 
+ * @author Markus
+ */
+public class YummyDaoGenerator {
+
+    public static void main(String[] args) throws Exception {
+        Schema schema = new Schema(7, "com.georgeme");
+        schema.enableKeepSectionsByDefault();
+        schema.enableActiveEntitiesByDefault();
+        addArticleTable(schema);
+
+        new DaoGenerator().generateAll(schema, "F:/DOZO/Android/workspace_ideas/GeorgeMe/src-gen");
+    }
+
+    private static void addArticleTable(Schema schema) {
+        Entity article = schema.addEntity("Article");
+        article.implementsInterface("Comparable");
+        article.addIdProperty();
+        article.addStringProperty("body").notNull();
+//        report.addStringProperty("category");
+//        report.addStringProperty("category_id");
+        article.addStringProperty("hits_daily");
+        article.addStringProperty("hits_total");
+        article.addStringProperty("article_id");
+        article.addStringProperty("comments_count");
+        article.addStringProperty("link");
+        article.addStringProperty("public_at");
+        article.addStringProperty("site_category");
+//        report.addStringProperty("facebook");
+        article.addStringProperty("thumb");
+        article.addStringProperty("title");
+        article.addStringProperty("user_name");
+        article.addStringProperty("display_name");
+        article.addStringProperty("avatar");
+        
+        Entity pic = schema.addEntity("Picture");
+        pic.addIdProperty();
+        pic.addStringProperty("uri").notNull();
+        pic.addStringProperty("height").notNull();
+        pic.addStringProperty("width").notNull();
+        Property article_id = pic.addLongProperty("article_id").notNull().getProperty();
+        
+        pic.addToOne(article, article_id);
+        article.addToMany(pic, article_id);
+       
+        Entity fav = schema.addEntity("Favorite");
+        fav.addStringProperty("blogger_id");
+        Property farticle_id = fav.addLongProperty("article_id").primaryKey().getProperty();
+        fav.addToOne(article, farticle_id);
+        article.addToMany(fav, farticle_id);        
+//      
+    }
+   
+
+}

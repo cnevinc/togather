@@ -1,0 +1,534 @@
+package com.georgeme;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
+import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Log;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.ImageView.ScaleType;
+import android.widget.LinearLayout;
+import android.widget.Toast;
+
+public class Act_Inv extends Activity {
+
+	public static String STORE_ID = "store_id", BRAND = "brand_name",
+			MODEL = "model_name", OS = "os_name", DATE = "device_date",
+			NOTES = "device_notes";
+	Button btn_continue;
+	EditText et_store_id, et_brand, et_model, et_os, et_date, et_notes;
+	ImageView iv_add_photos, iv_photo1, iv_photo2, iv_photo3, iv_photo4,
+			iv_photo5, iv_photo6;
+
+	
+	// Device Images (max:6)
+	public static final int MEDIA_TYPE_IMAGE = 1;
+	public static final String TEMP_PHOTO_FILE_NAME = "temp_photo.jpg";
+	private static final int CAMERA_CAPTURE_IMAGE_REQUEST_CODE = 100;
+	private static final int Gallery_IMAGE_REQUEST_CODE = 500;
+	private static final String IMAGE_DIRECTORY_NAME = "displaymachine";
+	private CharSequence[] mOptions = { "Take Photo", "Choose from Gallery",
+			"Cancel" };
+	private File mFileTemp;
+	private Uri mFileUri;
+	private int mPhotoCount = 0;
+	
+	private LinearLayout mLinearLayoutMain;
+	
+	// DB Operation
+	private AppData mAppData;
+	private DeviceData mDeviceData;
+	private long DB_ID= 0;
+	private SessionManager mSessionManager;
+	private MonitorServiceBoot monitorServiceBoot;
+
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_add_device);
+
+		startService(new Intent(Act_Inv.this, MonitorService.class));
+		
+		mAppData = new AppData(this);
+		mDeviceData = new DeviceData();
+		mSessionManager = new SessionManager(this);
+		
+		monitorServiceBoot = new MonitorServiceBoot();
+
+		IntentFilter filter = new IntentFilter();
+		filter.addAction(Intent.ACTION_BOOT_COMPLETED);
+		registerReceiver(monitorServiceBoot, filter);
+		
+		et_store_id = (EditText) findViewById(R.id.et_store_id);
+		et_brand = (EditText) findViewById(R.id.et_brand);
+		et_model = (EditText) findViewById(R.id.et_model);
+		et_os = (EditText) findViewById(R.id.et_os);
+		et_date = (EditText) findViewById(R.id.et_date);
+		et_notes = (EditText) findViewById(R.id.et_notes);
+		iv_add_photos = (ImageView) findViewById(R.id.iv_add_photos);
+		mLinearLayoutMain = (LinearLayout) findViewById(R.id.ll_main);
+
+		String state = Environment.getExternalStorageState();
+		if (Environment.MEDIA_MOUNTED.equals(state)) {
+			mFileTemp = new File(Environment.getExternalStorageDirectory(),
+					TEMP_PHOTO_FILE_NAME);
+		} else {
+			mFileTemp = new File(this.getFilesDir(), TEMP_PHOTO_FILE_NAME);
+		}
+
+		int currentapiVersion = android.os.Build.VERSION.SDK_INT;
+		Log.e("CURRENT API VERSION", "******" + currentapiVersion);
+
+		String debug5 = android.os.Build.MODEL;
+		String debug7 = android.os.Build.BRAND;
+		
+		Timestamp stamp = new Timestamp(System.currentTimeMillis());
+		String date = new SimpleDateFormat("HH:mm dd/MMM/yyyy").format(stamp);
+
+		et_store_id.setText(SignInActivity.STORE_ID);
+		et_brand.setText(debug7);
+		et_model.setText(debug5);
+		et_os.setText(androidVersionName(currentapiVersion) + " "
+				+ android.os.Build.VERSION.RELEASE);
+		et_date.setText(date);
+
+		iv_photo1 = (ImageView) findViewById(R.id.iv_photo1);
+		iv_photo2 = (ImageView) findViewById(R.id.iv_photo2);
+		iv_photo3 = (ImageView) findViewById(R.id.iv_photo3);
+		iv_photo4 = (ImageView) findViewById(R.id.iv_photo4);
+		iv_photo5 = (ImageView) findViewById(R.id.iv_photo5);
+		iv_photo6 = (ImageView) findViewById(R.id.iv_photo6);
+
+		iv_add_photos.setOnClickListener(new OnClickListener() {
+
+			@Override
+			public void onClick(View v) {
+				// TODO Auto-generated method stub
+				captureImage();
+			}
+		});
+
+		btn_continue = (Button) findViewById(R.id.btn_continue);
+		btn_continue.setOnClickListener(new OnClickListener() {
+
+			@SuppressLint("NewApi")
+			@Override
+			public void onClick(View v) {
+				// TODO Auto-generated method stub
+
+				String storeId = et_store_id.getText().toString();
+				String brand = et_brand.getText().toString();
+				String model = et_model.getText().toString();
+				String os = et_os.getText().toString();
+				String date = et_date.getText().toString();
+				String notes = et_notes.getText().toString();
+				
+				mDeviceData.store_id = storeId;
+				mDeviceData.brand = brand;
+				mDeviceData.model = model;
+				mDeviceData.os = os;
+				mDeviceData.date = date;
+				mDeviceData.notes = notes;
+				
+
+				String emptyField = "field is empty";
+
+				// Validation of fields input
+				Boolean validationFlag = true;
+				if (storeId != null && storeId.isEmpty()) {
+					et_store_id.setError(emptyField);
+					validationFlag = false;
+				}
+				if (brand != null && brand.isEmpty()) {
+					et_brand.setError(emptyField);
+					validationFlag = false;
+				}
+				if (model != null && model.isEmpty()) {
+					et_model.setError(emptyField);
+					validationFlag = false;
+				}
+				if (os != null && os.isEmpty()) {
+					et_os.setError(emptyField);
+					validationFlag = false;
+				}
+				if (date != null && date.isEmpty()) {
+					et_date.setError(emptyField);
+					validationFlag = false;
+				}
+				if (notes != null && notes.isEmpty()) {
+					et_notes.setError(emptyField);
+					validationFlag = false;
+				}
+
+				if (validationFlag) {
+					
+					DB_ID = mAppData.addDevice(mDeviceData);
+
+					Intent intent = new Intent(Act_Inv.this,
+							ConfirmationActivity.class);
+					intent.putExtra("DATABASE_ID", DB_ID);
+					startActivity(intent);
+					finish();
+
+				}
+			}
+		});
+	}
+
+	public String androidVersionName(int currentapiVersion) {
+		String versionName = "";
+		if (currentapiVersion == 1) {
+			versionName = "BASE";
+		} else if (currentapiVersion == 2) {
+			versionName = "BASE_1_1";
+		} else if (currentapiVersion == 3) {
+			versionName = "CUPCAKE";
+		} else if (currentapiVersion == 4) {
+			versionName = "DONUT";
+		} else if (currentapiVersion == 5) {
+			versionName = "ECLAIR";
+		} else if (currentapiVersion == 6) {
+			versionName = "ECLAIR_0_1";
+		} else if (currentapiVersion == 7) {
+			versionName = "ECLAIR_MR1";
+		} else if (currentapiVersion == 8) {
+			versionName = "FROYO";
+		} else if (currentapiVersion == 9) {
+			versionName = "GINGERBREAD";
+		} else if (currentapiVersion == 10) {
+			versionName = "GINGERBREAD_MR1";
+		} else if (currentapiVersion == 11) {
+			versionName = "HONEYCOMB";
+		} else if (currentapiVersion == 12) {
+			versionName = "HONEYCOMB_MR1";
+		} else if (currentapiVersion == 13) {
+			versionName = "HONEYCOMB_MR2";
+		} else if (currentapiVersion == 14) {
+			versionName = "ICE_CREAM_SANDWICH";
+		} else if (currentapiVersion == 15) {
+			versionName = "ICE_CREAM_SANDWICH_MR1";
+		} else if (currentapiVersion == 16) {
+			versionName = "JELLY_BEAN";
+		} else if (currentapiVersion == 17) {
+			versionName = "JELLY_BEAN_MR1";
+		} else if (currentapiVersion == 18) {
+			versionName = "JELLY_BEAN_MR2";
+		} else if (currentapiVersion == 19) {
+			versionName = "KITKAT";
+		} else {
+			versionName = "UNKNOWN";
+		}
+		return versionName;
+	}
+
+	protected void captureImage() {
+		// TODO Auto-generated method stub
+
+		AlertDialog.Builder builder = new AlertDialog.Builder(
+				Act_Inv.this);
+		builder.setTitle("Select Image!");
+		builder.setItems(mOptions, new DialogInterface.OnClickListener() {
+
+			@Override
+			public void onClick(DialogInterface dialog, int item) {
+				// TODO Auto-generated method stub
+				if (mOptions[item].equals("Take Photo")) {
+					Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+					mFileUri = getOutputMediaFileUri(MEDIA_TYPE_IMAGE);
+
+					intent.putExtra(MediaStore.EXTRA_OUTPUT, mFileUri);
+
+					startActivityForResult(intent,
+							CAMERA_CAPTURE_IMAGE_REQUEST_CODE);
+
+				} else if (mOptions[item].equals("Choose from Gallery")) {
+
+					Intent intent = new Intent(
+							Intent.ACTION_PICK,
+							android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+
+					startActivityForResult(intent, Gallery_IMAGE_REQUEST_CODE);
+				} else if (mOptions[item].equals("Cancel")) {
+					dialog.dismiss();
+				}
+
+			}
+		});
+		builder.show();
+
+	}
+
+	public Uri getOutputMediaFileUri(int type) {
+		return Uri.fromFile(getOutputMediaFile(type));
+	}
+
+	private static File getOutputMediaFile(int type) {
+
+		File mediaStorageDir = new File(
+				Environment
+						.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+				IMAGE_DIRECTORY_NAME);
+
+		if (!mediaStorageDir.exists()) {
+			if (!mediaStorageDir.mkdirs()) {
+				Log.d(IMAGE_DIRECTORY_NAME, "Oops! Failed create "
+						+ IMAGE_DIRECTORY_NAME + " directory");
+				return null;
+			}
+		}
+
+		String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss",
+				Locale.getDefault()).format(new Date());
+		File mediaFile;
+		if (type == MEDIA_TYPE_IMAGE) {
+			mediaFile = new File(mediaStorageDir.getPath() + File.separator
+					+ "IMG_" + timeStamp + ".jpg");
+
+			Log.e("Media Path::-->>", "" + mediaFile);
+		} else {
+			return null;
+		}
+
+		return mediaFile;
+	}
+
+	@Override
+	public void onSaveInstanceState(Bundle outState) {
+		super.onSaveInstanceState(outState);
+
+		// save file url in bundle as it will be null on scren orientation
+		// changes
+		outState.putParcelable("file_uri", mFileUri);
+	}
+
+	@Override
+	public void onActivityResult(int requestCode, int resultCode, final Intent data) {
+		// if the result is capturing Image
+		Log.e("onactivity", "onactivity");
+
+		Log.e("PHOTEO COUNT", "----- " + mPhotoCount);
+
+		if (requestCode == CAMERA_CAPTURE_IMAGE_REQUEST_CODE) {
+
+			if (resultCode == Activity.RESULT_OK) {
+				// successfully captured the image
+				// display it in image view
+				Log.e("in resultcode", "in resultcode");
+
+				Log.e("CAMERA IMAGE", mFileUri.getPath());
+				
+				runOnUiThread(new Runnable() {
+					@Override
+					public void run() {
+						
+					
+
+				BitmapFactory.Options options = new BitmapFactory.Options();
+				options.inSampleSize = 4;
+				Bitmap bitmap = BitmapFactory.decodeFile(mFileUri.getPath(),
+						options);
+
+				mLinearLayoutMain.setVisibility(View.VISIBLE);
+
+				if (mPhotoCount == 0) {
+					iv_photo1.setVisibility(View.VISIBLE);
+					iv_photo1.setImageBitmap(bitmap);
+					iv_photo1.setScaleType(ScaleType.FIT_XY);
+					mDeviceData.photo1 = bitmapToByte(bitmap);
+					
+				} else if (mPhotoCount == 1) {
+					iv_photo2.setVisibility(View.VISIBLE);
+					iv_photo2.setImageBitmap(bitmap);
+					iv_photo2.setScaleType(ScaleType.FIT_XY);
+					mDeviceData.photo2 = bitmapToByte(bitmap);
+					
+				} else if (mPhotoCount == 2) {
+					iv_photo3.setVisibility(View.VISIBLE);
+					iv_photo3.setImageBitmap(bitmap);
+					iv_photo3.setScaleType(ScaleType.FIT_XY);
+					mDeviceData.photo3 = bitmapToByte(bitmap);
+					
+				} else if (mPhotoCount == 3) {
+					iv_photo4.setVisibility(View.VISIBLE);
+					iv_photo4.setImageBitmap(bitmap);
+					iv_photo4.setScaleType(ScaleType.FIT_XY);
+					mDeviceData.photo4 = bitmapToByte(bitmap);
+					
+				} else if (mPhotoCount == 4) {
+					iv_photo5.setVisibility(View.VISIBLE);
+					iv_photo5.setImageBitmap(bitmap);
+					iv_photo5.setScaleType(ScaleType.FIT_XY);
+					mDeviceData.photo5 = bitmapToByte(bitmap);
+					
+				} else if (mPhotoCount == 5) {
+					iv_photo6.setVisibility(View.VISIBLE);
+					iv_photo6.setImageBitmap(bitmap);
+					iv_photo6.setScaleType(ScaleType.FIT_XY);
+					mDeviceData.photo6 = bitmapToByte(bitmap);
+					
+					iv_add_photos.setVisibility(View.GONE);
+				}
+
+				mPhotoCount++;
+				
+					}
+				});
+
+			} else if (resultCode == Activity.RESULT_CANCELED) {
+
+				// user cancelled Image capture
+				Log.e("in RESULT_CANCELED", "in RESULT_CANCELED");
+				Toast.makeText(this, "User cancelled image capture",
+						Toast.LENGTH_SHORT).show();
+			} else {
+				// failed to capture image
+				Toast.makeText(this, "Sorry! Failed to capture image",
+						Toast.LENGTH_SHORT).show();
+			}
+
+		}
+
+		if (requestCode == Gallery_IMAGE_REQUEST_CODE) {
+			Uri selectedImage = data.getData();
+			String[] filePath = { MediaStore.Images.Media.DATA };
+			Cursor c = this.getContentResolver().query(selectedImage, filePath,
+					null, null, null);
+			c.moveToFirst();
+			c.close();
+
+			try {
+
+				Thread thread = new Thread(){
+					@Override
+					public void run(){
+						
+					
+				// and at the end show info
+				runOnUiThread(new Runnable() {
+					@Override
+					public void run() {
+				
+				InputStream inputStream;
+				try {
+					inputStream = Act_Inv.this.getContentResolver()
+							.openInputStream(data.getData());
+					FileOutputStream fileOutputStream = new FileOutputStream(
+							mFileTemp);
+					copyStream(inputStream, fileOutputStream);
+					fileOutputStream.close();
+					inputStream.close();
+				} catch (FileNotFoundException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+
+				Log.e("GALLERY IMAGE", mFileTemp.getPath());
+				
+
+				BitmapFactory.Options options = new BitmapFactory.Options();
+				options.inSampleSize = 4;
+				final Bitmap bitmap = BitmapFactory.decodeFile(mFileTemp.getPath(),
+						options);
+
+				
+				
+				mLinearLayoutMain.setVisibility(View.VISIBLE);
+
+				if (mPhotoCount == 0) {
+					iv_photo1.setVisibility(View.VISIBLE);
+					iv_photo1.setImageBitmap(bitmap);
+					iv_photo1.setScaleType(ScaleType.FIT_XY);
+					mDeviceData.photo1 = bitmapToByte(bitmap);
+					
+				} else if (mPhotoCount == 1) {
+					iv_photo2.setVisibility(View.VISIBLE);
+					iv_photo2.setImageBitmap(bitmap);
+					iv_photo2.setScaleType(ScaleType.FIT_XY);
+					mDeviceData.photo2 = bitmapToByte(bitmap);
+					
+				} else if (mPhotoCount == 2) {
+					iv_photo3.setVisibility(View.VISIBLE);
+					iv_photo3.setImageBitmap(bitmap);
+					iv_photo3.setScaleType(ScaleType.FIT_XY);
+					mDeviceData.photo3 = bitmapToByte(bitmap);
+					
+				} else if (mPhotoCount == 3) {
+					iv_photo4.setVisibility(View.VISIBLE);
+					iv_photo4.setImageBitmap(bitmap);
+					iv_photo4.setScaleType(ScaleType.FIT_XY);
+					mDeviceData.photo4 = bitmapToByte(bitmap);
+					
+				} else if (mPhotoCount == 4) {
+					iv_photo5.setVisibility(View.VISIBLE);
+					iv_photo5.setImageBitmap(bitmap);
+					iv_photo5.setScaleType(ScaleType.FIT_XY);
+					mDeviceData.photo5 = bitmapToByte(bitmap);
+					
+				} else if (mPhotoCount == 5) {
+					iv_photo6.setVisibility(View.VISIBLE);
+					iv_photo6.setImageBitmap(bitmap);
+					iv_photo6.setScaleType(ScaleType.FIT_XY);
+					mDeviceData.photo6 = bitmapToByte(bitmap);
+
+					iv_add_photos.setVisibility(View.GONE);
+				}
+
+				mPhotoCount++;
+				
+					}
+				});
+					}
+				};thread.start();
+
+			} catch (Exception e) {
+
+				Log.e("TAG", "Error while creating temp file", e);
+			}
+
+		}
+	}
+
+	private void copyStream(InputStream inputStream,
+			FileOutputStream fileOutputStream) throws IOException {
+		// TODO Auto-generated method stub
+		byte[] buffer = new byte[1024];
+		int bytesRead;
+		while ((bytesRead = inputStream.read(buffer)) != -1) {
+			fileOutputStream.write(buffer, 0, bytesRead);
+		}
+	}
+
+	private byte[] bitmapToByte(Bitmap bitmap) {
+		ByteArrayOutputStream stream = new ByteArrayOutputStream();
+		bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+		return stream.toByteArray();
+	}
+}

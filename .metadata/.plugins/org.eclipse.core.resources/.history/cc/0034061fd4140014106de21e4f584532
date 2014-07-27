@@ -1,0 +1,590 @@
+/*
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.georgeme;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+import com.android.volley.RequestQueue;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdView;
+import com.google.android.gms.analytics.HitBuilders;
+import com.google.android.gms.analytics.Tracker;
+import com.nineoldandroids.view.animation.AnimatorProxy;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.DownloadManager.Request;
+import android.app.Fragment;
+import android.app.FragmentManager;
+import android.app.SearchManager;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.res.Configuration;
+import android.graphics.BitmapFactory;
+import android.net.ConnectivityManager;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.support.v4.app.ActionBarDrawerToggle;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
+import android.text.Html;
+import android.text.method.LinkMovementMethod;
+import android.util.Log;
+import android.util.TypedValue;
+import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.view.View.OnClickListener;
+import android.view.animation.ScaleAnimation;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ListView;
+import android.widget.ProgressBar;
+import android.widget.SimpleAdapter;
+import android.widget.TextView;
+import android.widget.Toast;
+ 
+public class Act_Main extends Activity  {
+	private static String TAG = "nevin";
+	LinearLayout mDragView;
+	
+	// SlideUpPanel
+	public static final String SAVED_STATE_ACTION_BAR_HIDDEN = "saved_state_action_bar_hidden";
+	SlidingUpPanelLayout mSlideUpPanel;
+	TextView mSUPTitle;
+	TextView mSUPAuthor;
+	BitmapFactory v;
+	ImageButton mImageButtonClose;
+	ImageButton mImageButtonWeb;
+
+	AlertDialog levelDialog;
+	AdView mAdView;
+
+	
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		 getWindow().requestFeature(Window.FEATURE_ACTION_BAR_OVERLAY);
+		setContentView(R.layout.act_main);
+        
+		
+		
+		mAdView = (AdView) findViewById(R.id.ad);
+ 		AdRequest adRequest = new AdRequest.Builder()
+ 				.addTestDevice(AdRequest.DEVICE_ID_EMULATOR)
+ 				.addTestDevice("1E172019E4D41AF1A4ED0C07934364B0")
+ 				.build();
+ 		mAdView.loadAd(adRequest);
+ 		
+
+		// SlidingUP ---start---
+
+		mSUPTitle = (TextView) findViewById(R.id.title);
+		mSUPTitle.setText("Welcome Yummy!");
+		mSUPAuthor = (TextView) findViewById(R.id.author);
+		mSUPAuthor.setText("Click above recipe and view detail here");
+ 
+		mSlideUpPanel = (SlidingUpPanelLayout) findViewById(R.id.sliding_layout);
+		mDragView = (LinearLayout) this.findViewById(R.id.dragView);
+		mSlideUpPanel.setDragView(mDragView);
+		mSlideUpPanel.setPanelSlideListener(new PanelSlideListener() {
+			@Override
+			public void onPanelSlide(View panel, float slideOffset) {
+
+			}
+
+			@Override
+			public void onPanelExpanded(View panel) {
+				Log.i(TAG, "onPanelExpanded");
+				mImageButtonWeb.setVisibility(View.VISIBLE);
+				mImageButtonClose.setVisibility(View.VISIBLE);
+				toggleHideyBar();
+				// TODO: switch text with head and actionbar title
+//				String title = mSUPTitle.getText().toString();
+//				mSUPTitle.setText(getActionBar().getTitle());
+//				setTitle(title);
+//				mDragView.setVisibility(View.GONE);
+			}
+
+			@Override
+			public void onPanelCollapsed(View panel) {
+				Log.i(TAG, "onPanelCollapsed");
+				toggleHideyBar();
+//				getActionBar().show();
+				mImageButtonWeb.setVisibility(View.INVISIBLE);
+				mImageButtonClose.setVisibility(View.INVISIBLE);
+				
+				// TODO: switch text with head and actionbar title
+//				String title = mSUPTitle.getText().toString();
+//				mSUPTitle.setText(getActionBar().getTitle());
+//				setTitle(title);
+//				mDragView.setVisibility(View.VISIBLE);
+			}
+
+			@Override
+			public void onPanelAnchored(View panel) {
+				Log.i(TAG, "onPanelAnchored");
+
+			}
+		});
+//		boolean actionBarHidden = savedInstanceState != null
+//				&& savedInstanceState.getBoolean(SAVED_STATE_ACTION_BAR_HIDDEN,
+//						false);
+//		if (actionBarHidden) {
+//			int actionBarHeight = getActionBarHeight();
+//			setActionBarTranslation(-actionBarHeight);// will "hide" an
+//														// ActionBar
+//		}
+
+		// SlidingUP ----end----
+
+		// Detail Frame Head ----start----
+		mImageButtonClose = (ImageButton)findViewById(R.id.close);
+		mImageButtonWeb = (ImageButton)findViewById(R.id.web);
+		mImageButtonClose.setOnClickListener(new OnClickListener(){
+
+			@Override
+			public void onClick(View v) {
+				mSlideUpPanel.collapsePane();
+			}});
+
+		// Detail Frame head -----end-----
+		
+	}
+	private void updateUI(){
+		if (mSlideUpPanel.isExpanded()){
+			mImageButtonWeb.setVisibility(View.VISIBLE);
+			mImageButtonClose.setVisibility(View.VISIBLE);
+		}else{
+			mImageButtonWeb.setVisibility(View.GONE);
+			mImageButtonClose.setVisibility(View.GONE);
+		}
+		
+	}
+	@Override
+	public void onResume(){
+		super.onResume();
+		// Check Nework
+		if (!Setting.isNetworkAvailable((ConnectivityManager) this
+				.getSystemService(Context.CONNECTIVITY_SERVICE))) {
+			Toast.makeText(this, "無法連結遠端伺服器", Toast.LENGTH_LONG).show();
+			this.findViewById(R.id.content_frame).setBackgroundResource(R.drawable.no_network);
+		}else{
+			this.findViewById(R.id.content_frame).setBackgroundDrawable(null);
+		}
+
+	}
+
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		MenuInflater inflater = getMenuInflater();
+		inflater.inflate(R.menu.main, menu);
+		return super.onCreateOptionsMenu(menu);
+	}
+
+	/* Called whenever we call invalidateOptionsMenu() */
+	@Override
+	public boolean onPrepareOptionsMenu(Menu menu) {
+		// If the nav drawer is open, hide action items related to the content
+		// view
+		boolean drawerOpen = mDrawerLayout.isDrawerOpen(mDrawerList);
+		menu.findItem(R.id.action_search).setVisible(!drawerOpen);
+		return super.onPrepareOptionsMenu(menu);
+	}
+
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		// The action bar home/up action should open or close the drawer.
+		// ActionBarDrawerToggle will take care of this.
+		if (mDrawerToggle.onOptionsItemSelected(item)) {
+			return true;
+		}
+		// Handle action buttons
+		switch (item.getItemId()) {
+		case R.id.action_search:
+			// create intent to perform web search for this planet
+			this.selectItem(1);
+			return true;
+		default: 
+			return super.onOptionsItemSelected(item);
+		}
+	}
+
+	/* The click listner for ListView in the navigation drawer */
+	private class DrawerItemClickListener implements
+			ListView.OnItemClickListener {
+		@Override
+		public void onItemClick(AdapterView<?> parent, View view, int position,
+				long id) {
+			selectItem(position);
+		}
+	}
+
+	
+
+	private void selectItem(int position) {
+		
+		String fragment_tag = getResources().getStringArray(R.array.drawer_item_array)[position];
+		// Google Analytics
+		Tracker t = ((MyApplication) this.getApplication()).getTracker();
+		t.setScreenName(fragment_tag);
+		t.send(new HitBuilders.AppViewBuilder().build());
+
+		if (this.mSlideUpPanel!=null)
+			this.mSlideUpPanel.collapsePane();
+		
+		// update the main content by replacing fragments
+		FragmentManager fragmentManager = getFragmentManager();
+		Bundle args = new Bundle();
+		Fragment fragment= new Frg_RecipeList();
+		switch (position) {
+		case 0: // Hot
+			// mProgressBar.setVisibility(View.VISIBLE);
+			
+			fragmentManager.beginTransaction().addToBackStack(null)
+					.replace(R.id.content_frame, fragment,fragment_tag).commit();
+			break;
+		case 1: // Search
+			Intent intent = new Intent(this, Act_RecipeSearch.class);
+			this.startActivityForResult(intent,1);
+			break;
+		case 2: // Favorite
+			args.putString("favorite", "fav");
+			fragment.setArguments(args);
+			fragmentManager.beginTransaction().addToBackStack(null)
+			.replace(R.id.content_frame, fragment,fragment_tag).commit();
+			
+			break;
+		case 3:
+			
+			String message = "<ol>"
+					+ "<li>本App使用到的資訊皆來自Pixnet痞客邦，內容版權皆屬於原作者所有。</li>"
+					+ "<li>若有建議歡迎<a href=\"mailto://cnevinchen@gmail.com>\">寫信給我</a></li>"
+	 				+ "<li>如果覺得還不錯，請給我個<a href='https://play.google.com/store/apps/details?id=com.cgearc.yummy'>好評價</a></li>"
+					+ "<li>如果不喜歡，可以<a href=\"javascript:alert(injectedObject.unistall())\"> 點此移除Yummy</a></li>"
+					+ "<li>幫我們填個問卷,輸入email未來可得到神秘小禮物喔,<a href=https://docs.google.com/forms/d/1Rviax0Ldl3zWkW5FwOJUYZtFALcgdbqSQdKNG3XtrN4/viewform>看不到可點此</a></li>"
+					+ "</ol>"
+					+ "<iframe src=\"https://docs.google.com/forms/d/1Rviax0Ldl3zWkW5FwOJUYZtFALcgdbqSQdKNG3XtrN4/viewform?embedded=true\" width=100% height=1300 frameborder=\"0\" marginheight=\"0\" marginwidth=\"0\">Loading...</iframe>";			
+			mSUPTitle.setText("關於本App");
+			mSUPAuthor.setText("感謝你的支持,使用此App及代表您同意以下約定");
+			Frg_RecipeDetail detail = new Frg_RecipeDetail();
+			args = new Bundle();
+			args.putString("body", message);
+			detail.setArguments(args);
+			mImageButtonWeb.setOnClickListener(new OnClickListener(){
+
+				@Override
+				public void onClick(View v) {
+					Intent i = new Intent(Intent.ACTION_VIEW);
+		            i.setData(Uri.parse("https://play.google.com/store/apps/details?id=com.cgearc.yummy"));
+		            startActivity(i);//			
+				}});
+			this.getFragmentManager().beginTransaction()
+					.replace(R.id.slideUpPanel_frame, detail).addToBackStack(null).commit();
+			new Handler().postDelayed(new Runnable(){
+
+				@Override
+				public void run() {
+					// TODO Auto-generated method stub
+					mSlideUpPanel.expandPane();
+				}},500);
+			
+			break;
+		case 4:
+			Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setData(Uri.parse("https://play.google.com/store/apps/developer?id=cnevinc"));
+            startActivity(i);//			
+//			// Strings to Show In Dialog with Radio Buttons
+//			final CharSequence[] items = { "字體縮放 ", " 整頁縮放 ", " 隱藏圖片 " };
+//
+//			// Creating and Building the Dialog
+//			AlertDialog.Builder builder = new AlertDialog.Builder(this);
+//			builder.setTitle("手勢選項");
+//			builder.setSingleChoiceItems(items, -1,
+//					new DialogInterface.OnClickListener() {
+//						public void onClick(DialogInterface dialog, int item) {
+//
+//							switch (item) {
+//							case 0:
+//								Setting.GESTURE = 0 ;
+//								break;
+//							case 1:
+//								Setting.GESTURE = 1 ;
+//								break;
+//							case 2:
+//								Setting.GESTURE = 2 ;
+//								break;
+//							}
+//							levelDialog.dismiss();
+//						}
+//					});
+//			levelDialog = builder.create();
+//			levelDialog.show();
+			break;
+		}
+		
+
+		// update selected item and title, then close the drawer
+		mDrawerList.setItemChecked(position, true);
+//		setTitle(mDrawerItems[position]);
+		mDrawerLayout.closeDrawer(mDrawerList);
+	}
+
+	protected void onActivityResult(int requestCode
+			, int resultCode, Intent data) {
+
+	    if (requestCode == 1) {
+	        if(resultCode == RESULT_OK){
+	        	MyVolley.getRequestQueue().cancelAll(new RequestQueue.RequestFilter() {
+	        		// clear all request
+					@Override
+					public boolean apply(com.android.volley.Request<?> request) {
+						return true;
+					}
+	            });
+	        	Setting.allArticles.clear();
+	        	Fragment fragment= new Frg_RecipeList();
+				Bundle args = new Bundle();
+				args.putString("query", data.getStringExtra("keyword"));
+				args.putString("localFileId", data.getStringExtra("localFileId"));
+				fragment.setArguments(args);
+				String fragment_tag = getResources().getStringArray(R.array.drawer_item_array)[1] +":"+data.getStringExtra("keyword");
+				this.getFragmentManager().beginTransaction()
+				.replace(R.id.content_frame, fragment,fragment_tag).addToBackStack(null).commit();
+//				this.setTitle(fragment_tag);
+	        }
+	        if (resultCode == RESULT_CANCELED) {
+	            //Write your code if there's no result
+	        }
+	    }
+	}
+	@Override
+	public void setTitle(CharSequence title) {
+		mTitle = title;
+		getActionBar().setTitle(mTitle);
+	}
+
+	/**
+	 * When using the ActionBarDrawerToggle, you must call it during
+	 * onPostCreate() and onConfigurationChanged()...
+	 */
+
+	@Override
+	protected void onPostCreate(Bundle savedInstanceState) {
+		super.onPostCreate(savedInstanceState);
+		// Sync the toggle state after onRestoreInstanceState has occurred.
+		mDrawerToggle.syncState();
+	}
+
+	@Override
+	public void onConfigurationChanged(Configuration newConfig) {
+		super.onConfigurationChanged(newConfig);
+		// Pass any configuration change to the drawer toggls
+		mDrawerToggle.onConfigurationChanged(newConfig);
+	}
+	
+
+	@Override
+	public void onSearchCompleted() {
+		// mProgressBar.setVisibility(View.INVISIBLE);
+
+	}
+
+	@Override
+	public void onRecipeClicked(String title,final String user_name,String display_name, final String  article_id, String body) {
+
+		
+		mImageButtonWeb.setOnClickListener(new OnClickListener(){
+
+			@Override
+			public void onClick(View v) {
+				Intent i = new Intent(Intent.ACTION_VIEW);
+	            i.setData(Uri.parse("http://"+user_name+".pixnet.net/blog/post/"+article_id));
+	            startActivity(i);				
+			}});
+
+		mSUPTitle.setText(title);
+		mSUPAuthor.setText(display_name);
+		Frg_RecipeDetail detail = new Frg_RecipeDetail();
+		Bundle args = new Bundle();
+		args.putString("body", body);
+		args.putString("user_name", user_name);
+		args.putString("article_id", article_id);
+		detail.setArguments(args);
+		this.getFragmentManager().beginTransaction()
+				.replace(R.id.slideUpPanel_frame, detail).commit();
+		new Handler().postDelayed(new Runnable(){
+
+			@Override
+			public void run() {
+				
+				mSlideUpPanel.expandPane();
+				
+			}},500);
+	}
+	
+	// For slidinguppanel ---start---
+	private int getActionBarHeight() {
+		int actionBarHeight = 0;
+		TypedValue tv = new TypedValue();
+		if (getTheme().resolveAttribute(android.R.attr.actionBarSize, tv, true)) {
+			actionBarHeight = TypedValue.complexToDimensionPixelSize(tv.data,
+					getResources().getDisplayMetrics());
+		}
+		return actionBarHeight;
+	}  
+   
+	public void setActionBarTranslation(float y) {
+		// Figure out the actionbar height
+		int actionBarHeight = getActionBarHeight();
+		// A hack to add the translation to the action bar
+		ViewGroup content = ((ViewGroup) findViewById(android.R.id.content)
+				.getParent());
+		int children = content.getChildCount();
+		for (int i = 0; i < children; i++) {
+			
+			View child = content.getChildAt(i);
+			if (child.getId() != android.R.id.content) {
+				child.setTranslationY(y);
+//				if (y <= -actionBarHeight) {
+//					child.setVisibility(View.GONE);
+//				} else {
+//					child.setVisibility(View.VISIBLE);
+//					if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+//						
+//						child.setTranslationY(y);
+//					} else {
+//						AnimatorProxy.wrap(child).setTranslationY(y);
+//					}
+//				}
+			} 
+		}
+	}
+ 
+	@Override
+	protected void onSaveInstanceState(Bundle outState) {  
+		super.onSaveInstanceState(outState);
+		outState.putBoolean(SAVED_STATE_ACTION_BAR_HIDDEN, mSlideUpPanel.isExpanded()); 
+		outState.putString("mSUPTitle", this.mSUPTitle.getText().toString());
+		outState.putString("mSUPAuthor", this.mSUPAuthor.getText().toString());
+		outState.putString("actionBarTitle", this.getActionBar().getTitle().toString());
+	}
+	@Override
+	public void onRestoreInstanceState(Bundle savedInstanceState) {
+	  super.onRestoreInstanceState(savedInstanceState);
+	  this.mSUPTitle.setText(savedInstanceState.getString("mSUPTitle"));
+	  this.mSUPAuthor.setText(savedInstanceState.getString("mSUPAuthor"));
+	  this.getActionBar().setTitle(savedInstanceState.getString("actionBarTitle"));
+	}
+ 
+	// For SlidingUpPanel ----end----
+	@Override
+	public void onBackPressed() {
+		
+		if (mSlideUpPanel.isExpanded()) {
+			mSlideUpPanel.collapsePane();
+		} else {
+			super.onBackPressed();
+			if (this.getFragmentManager().getBackStackEntryCount() == 0) {
+
+				AlertDialog.Builder builder = new AlertDialog.Builder(this);
+				builder.setTitle("已經是第一頁囉");
+				builder.setMessage("確定要離開Yummy嗎?");
+				builder.setNegativeButton("算了",
+						new DialogInterface.OnClickListener() {
+							@Override
+							public void onClick(DialogInterface dialog,
+									int which) {
+								dialog.dismiss();
+							}
+						});
+				builder.setPositiveButton(R.string.confirm_leave,
+						new DialogInterface.OnClickListener() {
+							@Override
+							public void onClick(DialogInterface dialog,
+									int which) {
+								finish();
+							}
+						});  
+				levelDialog = builder.create();
+				levelDialog.show();
+			}
+		}
+	}
+	 public void toggleHideyBar() {
+
+	        // BEGIN_INCLUDE (get_current_ui_flags)
+	        // The UI options currently enabled are represented by a bitfield.
+	        // getSystemUiVisibility() gives us that bitfield.
+	        int uiOptions = getWindow().getDecorView().getSystemUiVisibility();
+	        int newUiOptions = uiOptions;
+	        // END_INCLUDE (get_current_ui_flags)
+	        // BEGIN_INCLUDE (toggle_ui_flags)
+	        boolean isImmersiveModeEnabled =
+	                ((uiOptions | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY) == uiOptions);
+	        if (isImmersiveModeEnabled) {
+	            Log.i(TAG, "Turning immersive mode mode off. ");
+	        } else {
+	            Log.i(TAG, "Turning immersive mode mode on.");
+	        }
+
+	        // Navigation bar hiding:  Backwards compatible to ICS.
+	        if (Build.VERSION.SDK_INT >= 14) {
+	            newUiOptions ^= View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+	        }
+
+	        // Status bar hiding: Backwards compatible to Jellybean
+	        if (Build.VERSION.SDK_INT >= 16) {
+	            newUiOptions ^= View.SYSTEM_UI_FLAG_FULLSCREEN;
+	        }
+
+	        // Immersive mode: Backward compatible to KitKat.
+	        // Note that this flag doesn't do anything by itself, it only augments the behavior
+	        // of HIDE_NAVIGATION and FLAG_FULLSCREEN.  For the purposes of this sample
+	        // all three flags are being toggled together.
+	        // Note that there are two immersive mode UI flags, one of which is referred to as "sticky".
+	        // Sticky immersive mode differs in that it makes the navigation and status bars
+	        // semi-transparent, and the UI flag does not get cleared when the user interacts with
+	        // the screen.
+	        if (Build.VERSION.SDK_INT >= 18) {
+	            newUiOptions ^= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+	        }
+
+	        getWindow().getDecorView().setSystemUiVisibility(newUiOptions);
+	        if(getActionBar().isShowing())
+	            getActionBar().hide();
+	        else
+	            getActionBar().show();
+	        //END_INCLUDE (set_ui_flags)
+	    }
+
+}

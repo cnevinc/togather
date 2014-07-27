@@ -1,0 +1,92 @@
+package com.georgeme;
+
+import android.app.Application;
+import android.content.Context;
+import android.database.sqlite.SQLiteDatabase;
+
+public class MyApplication extends Application {
+	
+	static DaoSession mDaoSession;
+	
+	@Override
+	public void onCreate() {
+		super.onCreate();
+		initDB(this);
+		prepareSampleData();
+		
+	
+	}
+	private void prepareSampleData() {
+		mDaoSession.getDeviceDao().deleteAll();
+		mDaoSession.getHistoryDao().deleteAll();
+		mDaoSession.getPictureDao().deleteAll();
+		String[] brand = new String[] { "Samsung",
+				"Samsung ", "HTC" ,"Sony"};
+
+		String[] model = new String[] { " Galaxy  S5 -1","Galaxy  S5 -2",
+				" One M8 -1" , "Z1 LTE"};
+		String[] status = new String[] { "", "", "Disconnected !!!","" };
+		String[] os = new String[] { "JellyBean 4.1", "KitKat 4.4", "KitKat 4.4","Jelly Bean 4.2" };
+		String[] notes = new String[] { "Red", "Blue ", "In Stock","Lost" };
+		 
+		for (int i=0;i<brand.length;i++){
+			Device d = new Device();
+			d.setImei("imei"+i);
+			d.setBrand(brand[i]);
+			d.setModel(model[i]);
+			d.setOs(os[i]);
+			d.setNotes(notes[i]);
+			d.setDate("18:28hrs,08-jun-2014");
+			d.setStatus(status[i]);
+			mDaoSession.getDeviceDao().insert(d);
+		 	
+			if (!status[i].equals("")){
+				//-- Dummy Data
+				String[] date = new String[] { "17:10hrs, 08-jun-2014",
+						"13:10hrs, 06-jun-2014", "11.10hrs, 01-jun2014" };
+
+				String[] note = new String[] {
+						"Status records:Accidental power disconnection, reset done by nevin ",
+						"Status records:Accidental power disconnection, reset done by chris",
+						"Status records:Accidental power disconnection, reset done by chris" };
+				for (int j=0;j<note.length;j++){
+					History h = new History();
+					h.setDevice(d);
+					h.setImei("imei"+i);
+					h.setDate(date[j]);
+					h.setNote(note[j]);
+					mDaoSession.getHistoryDao().insert(h);
+				}
+			}
+			for (int k=0;k<status.length;k++){
+				Picture p  = new Picture();
+				p.setDevice(d);
+				//p.setUri("/sdcard/DCIM/Camera/IMG_20140521_152426.jpg");
+				p.setUri("/sdcard/dummy_photo.png");
+				mDaoSession.getPictureDao().insert(p);
+			}
+			
+				
+		}
+		
+		
+		
+
+		
+	}
+	public static DaoSession getDBSession(Context conext){
+		
+		if (mDaoSession==null){
+			initDB(conext);
+		}
+		return mDaoSession;
+	}
+	
+	private static void initDB(Context conext){
+		DevOpenHelper helper = new DaoMaster.DevOpenHelper(conext, "phind-db",
+				null);
+		SQLiteDatabase db = helper.getWritableDatabase();
+		DaoMaster mDaoMaster = new DaoMaster(db);
+		mDaoSession = mDaoMaster.newSession();
+	}
+}
