@@ -59,6 +59,7 @@ import com.geogreme.view.SwipeListView;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.gcm.GoogleCloudMessaging;
+import com.google.android.gms.maps.model.LatLng;
 
 import com.geogreme.view.BaseSwipeListViewListener;
 
@@ -70,22 +71,29 @@ public class Act_ShopList extends Activity {
 	SwipeListView mListView;
 	private ProgressDialog mProgressDialog;
 	HashMap<Integer, Restaurant> mResult = new HashMap<Integer, Restaurant>();
+	LatLng mCenterLatLng;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.act_user_list);
 
+		LatLng ll = (LatLng)this.getIntent().getParcelableExtra("latlng");
+		if (ll!=null)
+			this.mCenterLatLng = ll;
+		else
+			return;
+		
+		// Shop result
 		mProgressDialog = new ProgressDialog(this);
 		mProgressDialog.setMessage("loading");
 		mProgressDialog.setCancelable(false);
-		mProgressDialog.show();
+
+		mAdapter = new Adp_ShopList(this);
 
 		mListView = (SwipeListView) findViewById(R.id.store_listview);
 		mListView.setItemsCanFocus(false);
 		mListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
-		mAdapter = new Adp_ShopList(this);
-
 		mListView
 				.setMultiChoiceModeListener(new AbsListView.MultiChoiceModeListener() {
 
@@ -127,58 +135,9 @@ public class Act_ShopList extends Activity {
 						return false;
 					}
 				});
-//		mListView.setSwipeListViewListener(new BaseSwipeListViewListener() {
-//			@Override
-//			public void onOpened(int position, boolean toRight) {
-//				mResult.put(position, mAdapter.getData().get(position));
-//
-//			}
-//
-//			@Override
-//			public void onClosed(int position, boolean fromRight) {
-//				mResult.remove(position);
-//			}
-//
-//			@Override
-//			public void onListChanged() {
-//			}
-//
-//			@Override
-//			public void onMove(int position, float x) {
-//			}
-//
-//			@Override
-//			public void onStartOpen(int position, int action, boolean right) {
-//				Log.d("swipe", String.format("onStartOpen %d - action %d",
-//						position, action));
-//			}
-//
-//			@Override
-//			public void onStartClose(int position, boolean right) {
-//				Log.d("swipe", String.format("onStartClose %d", position));
-//			}
-//
-//			@Override
-//			public void onClickFrontView(int position) {
-//				Log.d("swipe", String.format("onClickFrontView %d", position));
-//			}
-//
-//			@Override
-//			public void onClickBackView(int position) {
-//				Log.d("swipe", String.format("onClickBackView %d", position));
-//			}
-//
-//			@Override
-//			public void onDismiss(int[] reverseSortedPositions) {
-//				for (int position : reverseSortedPositions) {
-//					mAdapter.getData().remove(position);
-//				}
-//				mAdapter.notifyDataSetChanged();
-//			}
-//
-//		});
+
 		mListView.setAdapter(mAdapter);
-	
+
 		new DownloadFilesTask().execute();
 		// swipeListView.setSwipeActionLeft(settings.getSwipeActionLeft());
 		// swipeListView.setSwipeActionRight(settings.getSwipeActionRight());
@@ -189,17 +148,26 @@ public class Act_ShopList extends Activity {
 	}
 
 	private class DownloadFilesTask extends AsyncTask<Void, String, String> {
-		
+
+		@Override
+		protected void onPreExecute() {
+			mProgressDialog.show();
+
+		}
+
 		protected String doInBackground(Void... v) {
 			try {
-				
+
 				String api_url = "http://54.248.92.109/api/nears";
 				HttpClient httpclient = new DefaultHttpClient();
 				HttpPost httppost = new HttpPost(api_url);
-				List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(3);
-				nameValuePairs.add(new BasicNameValuePair("latitude", "24.9974469"));
-				nameValuePairs.add(new BasicNameValuePair("longitude","121.6206944" ));
-				nameValuePairs.add(new BasicNameValuePair("p","1" ));
+				List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(
+						3);
+				nameValuePairs.add(new BasicNameValuePair("latitude", String
+						.valueOf(mCenterLatLng.latitude)));
+				nameValuePairs.add(new BasicNameValuePair("longitude", String
+						.valueOf(mCenterLatLng.longitude)));
+				nameValuePairs.add(new BasicNameValuePair("p", "1"));
 				httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
 				// Execute HTTP Post Request
 				HttpResponse response = httpclient.execute(httppost);
@@ -219,14 +187,17 @@ public class Act_ShopList extends Activity {
 		}
 
 		protected void onPostExecute(String result) {
-			Log.d("nevin","-----result----"+result);
+
+			Log.d("nevin", "-----result----" + result);
+			mAdapter.getData().clear();
+			// mAdapter.notifyDataSetChanged();
 			try {
 				JSONObject rs = new JSONObject(result);
-				JSONArray entries =  rs.getJSONArray("restaurant");
+				JSONArray entries = rs.getJSONArray("restaurant");
 				for (int i = 0; i < entries.length(); i++) {
 					JSONObject entry = entries.getJSONObject(i);
 					Restaurant r = new Restaurant();
-					Log.d("nevin","--src---"+entry.getString("source"));
+					Log.d("nevin", "--src---" + entry.getString("source"));
 					r.setAddress(entry.getString("address"));
 					r.setCover(entry.getString("cover"));
 					r.setDescription(entry.getString("description"));
@@ -239,6 +210,7 @@ public class Act_ShopList extends Activity {
 					r.setRating(entry.getString("rating"));
 					r.setTime(entry.getString("time"));
 
+					
 					mAdapter.getData().add(r);
 					mAdapter.notifyDataSetChanged();
 				}
@@ -251,28 +223,4 @@ public class Act_ShopList extends Activity {
 		}
 
 	}
-
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		MenuInflater inflater = getMenuInflater();
-		inflater.inflate(R.menu.menu_app, menu);
-		return true;
-	}
-
-	@Override
-	public boolean onMenuItemSelected(int featureId, MenuItem item) {
-		boolean handled = false;
-		switch (item.getItemId()) {
-		case android.R.id.home: // Actionbar home/up icon
-			finish();
-			break;
-		case R.id.menu_settings:
-			Intent intent = new Intent(this, Act_Circle.class);
-			intent.putExtra("result", mResult);
-			startActivity(intent);
-			break;
-		}
-		return handled;
-	}
-
 }

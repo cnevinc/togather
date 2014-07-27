@@ -4,11 +4,12 @@
     android:layout_height="match_parent"
     android:orientation="vertical" >
 
-    <com.geogreme.view.SwipeListView
+     <com.geogreme.view.SwipeListView
         xmlns:swipe="http://schemas.android.com/apk/res-auto"
         android:id="@+id/store_listview"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
+        android:layout_weight="1"
         swipe:swipeBackView="@+id/back"
         swipe:swipeCloseAllItemsWhenMoveList="true"
         swipe:swipeDrawableChecked="@drawable/choice_selected"

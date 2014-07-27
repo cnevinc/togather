@@ -34,6 +34,7 @@ import com.google.android.gms.maps.model.MarkerOptions;
 
 import android.app.Dialog;
 import android.app.ProgressDialog;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Point;
 import android.location.Location;
@@ -128,59 +129,6 @@ public class Act_Circle extends FragmentActivity implements
 		
 //		tp.setOnTimeChangedListener(myOnTimechangedListener);
 		
-		// Shop result
-		mProgressDialog = new ProgressDialog(this);
-		mProgressDialog.setMessage("loading");
-		mProgressDialog.setCancelable(false);
-
-		mListView = (SwipeListView) findViewById(R.id.store_listview);
-		mListView.setItemsCanFocus(false);
-		mListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
-		mAdapter = new Adp_ShopList(this);
-
-		mListView
-				.setMultiChoiceModeListener(new AbsListView.MultiChoiceModeListener() {
-
-					@Override
-					public void onItemCheckedStateChanged(ActionMode mode,
-							int position, long id, boolean checked) {
-						mode.setTitle("Selected ("
-								+ mListView.getCountSelected() + ")");
-					}
-
-					@Override
-					public boolean onActionItemClicked(ActionMode mode,
-							MenuItem item) {
-						switch (item.getItemId()) {
-						case R.id.menu_delete:
-							mListView.dismissSelected();
-							mode.finish();
-							return true;
-						default:
-							return false;
-						}
-					}
-
-					@Override
-					public boolean onCreateActionMode(ActionMode mode, Menu menu) {
-						MenuInflater inflater = mode.getMenuInflater();
-						inflater.inflate(R.menu.menu_choice_items, menu);
-						return true;
-					}
-
-					@Override
-					public void onDestroyActionMode(ActionMode mode) {
-						mListView.unselectedChoiceStates();
-					}
-
-					@Override
-					public boolean onPrepareActionMode(ActionMode mode,
-							Menu menu) {
-						return false;
-					}
-				});
-
-		mListView.setAdapter(mAdapter);
 
 		setUpMapIfNeeded();
 
@@ -288,7 +236,6 @@ public class Act_Circle extends FragmentActivity implements
 			mCenterCircle = mMap.addCircle(new CircleOptions()
 					.center(mCenterLatLng).strokeWidth(1f)
 					.fillColor(0x8058FAF4).radius(mCenterRadius * 1.1D));
-			new DownloadFilesTask().execute();
 		}
 		mCenterCircle.setRadius(this.mCenterRadius * 1.1D);
 		mCenterCircle.setCenter(mCenterLatLng);
@@ -320,18 +267,6 @@ public class Act_Circle extends FragmentActivity implements
 	@Override
 	public void onMarkerDragEnd(Marker marker) {
 		onMarkerMoved(marker);
-		this.updateCenterLatLng();
-		new DownloadFilesTask().execute();
-		LatLngBounds.Builder builder = new LatLngBounds.Builder();
-
-		for (MapUser user : this.mUserLatLng) {
-			builder.include(user.marker.getPosition());
-		}
-		LatLngBounds bounds = builder.build();
-		int padding = 0; // offset from edges of the map in pixels
-		CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, padding);
-		this.mMap.moveCamera(cu);
-
 	}
 
 	@Override
@@ -345,8 +280,8 @@ public class Act_Circle extends FragmentActivity implements
 			if (u.id.equals(id)) {
 				u.marker.setPosition(marker.getPosition());
 			}
-
 		}
+		this.updateCenterLatLng();
 
 	}
 
@@ -364,79 +299,29 @@ public class Act_Circle extends FragmentActivity implements
 		// mCircles.add(circle);
 	}
 
-	private class DownloadFilesTask extends AsyncTask<Void, String, String> {
-		@Override
-		protected void onPreExecute() {
-			mProgressDialog.show();
-
-		}
-
-		protected String doInBackground(Void... v) {
-			try {
-
-				String api_url = "http://54.248.92.109/api/nears";
-				HttpClient httpclient = new DefaultHttpClient();
-				HttpPost httppost = new HttpPost(api_url);
-				List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(
-						3);
-				nameValuePairs.add(new BasicNameValuePair("latitude", String
-						.valueOf(mCenterLatLng.latitude)));
-				nameValuePairs.add(new BasicNameValuePair("longitude", String
-						.valueOf(mCenterLatLng.longitude)));
-				nameValuePairs.add(new BasicNameValuePair("p", "1"));
-				httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
-				// Execute HTTP Post Request
-				HttpResponse response = httpclient.execute(httppost);
-				if (response.getStatusLine().getStatusCode() == HttpURLConnection.HTTP_OK)
-					return EntityUtils.toString(response.getEntity());
-				else
-					return null;
-			} catch (ParseException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-				return null;
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-				return null;
-			}
-		}
-
-		protected void onPostExecute(String result) {
-
-			Log.d("nevin", "-----result----" + result);
-			mAdapter.getData().clear();
-			// mAdapter.notifyDataSetChanged();
-			try {
-				JSONObject rs = new JSONObject(result);
-				JSONArray entries = rs.getJSONArray("restaurant");
-				for (int i = 0; i < entries.length(); i++) {
-					JSONObject entry = entries.getJSONObject(i);
-					Restaurant r = new Restaurant();
-					Log.d("nevin", "--src---" + entry.getString("source"));
-					r.setAddress(entry.getString("address"));
-					r.setCover(entry.getString("cover"));
-					r.setDescription(entry.getString("description"));
-					r.setDistance(entry.getString("distance"));
-					;
-					r.setLatitude(entry.getString("latitude"));
-					r.setLongitude(entry.getString("longitude"));
-					r.setName(entry.getString("name"));
-					r.setPrice(entry.getString("price"));
-					r.setRating(entry.getString("rating"));
-					r.setTime(entry.getString("time"));
-
-					mAdapter.getData().add(r);
-					mAdapter.notifyDataSetChanged();
-				}
-				mProgressDialog.dismiss();
-			} catch (JSONException e) {
-			} catch (NumberFormatException e) {
-			} catch (ParseException e) {
-				e.printStackTrace();
-			}
-		}
-
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		MenuInflater inflater = getMenuInflater();
+		inflater.inflate(R.menu.menu_app, menu);
+		return true;
 	}
+
+	@Override
+	public boolean onMenuItemSelected(int featureId, MenuItem item) {
+		boolean handled = false;
+		switch (item.getItemId()) {
+		case android.R.id.home: // Actionbar home/up icon
+			finish();
+			break;
+		case R.id.menu_settings:
+			Intent intent = new Intent(this, Act_ShopList.class);
+			intent.putExtra("latlng", this.mCenterLatLng);
+			startActivity(intent);
+			break;
+		}
+		return handled;
+	}
+
+
 
 }
